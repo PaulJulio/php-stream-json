@@ -1,0 +1,15 @@
+{
+  "name": "pauljulio/php-stream-json",
+  "description": "PSR-7 Stream stored as a json object",
+  "minimum-stability": "stable",
+  "license": "gnu v2",
+  "authors": [
+    {
+      "name": "Paul Hulett",
+      "email": "paulhulett@gmail.com"
+    }
+  ],
+  "require": {
+    "psr/http-message": "1.0"
+  }
+}
