@@ -1,7 +1,7 @@
 <?php
 namespace PaulJulio\StreamJSON;
 
-final class StreamJSON implements \Psr\Http\Message\StreamInterface {
+final class StreamJSON implements \Psr\Http\Message\StreamInterface, \ArrayAccess {
     /* todo: most likely breaks horribly for multi-byte character sets */
 
     /* @var resource */
@@ -10,6 +10,8 @@ final class StreamJSON implements \Psr\Http\Message\StreamInterface {
     private $flen;
     /* @var int the current pointer position */
     private $cursor = 0;
+    /* @var array a dictionary of offsets to their cursor position */
+    private $offsetList = [];
 
     public function __construct() {
         $this->stream = $this->createStream();
@@ -60,6 +62,9 @@ final class StreamJSON implements \Psr\Http\Message\StreamInterface {
     public function detach() {
         $stream = $this->stream;
         $this->stream = null;
+        $this->flen = null;
+        $this->offsetList = null;
+        $this->cursor = null;
         return $stream;
     }
     /**
@@ -244,5 +249,88 @@ final class StreamJSON implements \Psr\Http\Message\StreamInterface {
             return null;
         }
         return $md;
+    }
+
+    /**
+     * @param mixed $offset
+     * @return bool
+     */
+    public function offsetExists ($offset) {
+        return (isset($this->offsetList[$offset]));
+    }
+
+    /**
+     * @param mixed $offset
+     * @return mixed
+     * @throws \Exception if stream is not readable
+     */
+    public function offsetGet ($offset) {
+        if (!$this->isReadable()) {
+            throw new \Exception('Stream is not readable');
+        }
+        if ($this->offsetExists($offset)) {
+            $joffset = json_encode($offset);
+            $this->seek($this->offsetList[$offset]['cursor']);
+            $raw = $this->read($this->offsetList[$offset]['length']);
+            $json = substr($raw, strlen($joffset) + 1);
+            return json_decode($json, $this->offsetList[$offset]['assoc']);
+        }
+        return null;
+    }
+
+    /**
+     * @param mixed $offset
+     * @param mixed $value
+     */
+    public function offsetSet($offset, $value) {
+        $this->offsetUnset($offset);
+        $this->seek(-1, SEEK_END);
+        $joffset = json_encode($offset);
+        $jvalue = json_encode($value);
+        if (count($this->offsetList) > 0) {
+            $this->write(',');
+        }
+        $priorCursor = $this->cursor;
+        $written = $this->write($joffset . ':' . $jvalue);
+        $this->offsetList[$offset] = ['cursor' => $priorCursor, 'length' => $written, 'assoc' => is_array($value)];
+    }
+
+    /**
+     * @param mixed $offset
+     */
+    public function offsetUnset($offset) {
+        if ($this->offsetExists($offset) && count($this->offsetList) === 1) {
+            // resetting the only set key, just reset the stream
+            fclose($this->stream);
+            $this->offsetList = [];
+            $this->stream = $this->createStream();
+            fwrite($this->stream, '{}');
+            $this->flen = 2;
+        } elseif ($this->offsetExists($offset)) {
+            // copy the current stream into another stream that contains all but the rewritten info
+            $newStream = $this->createStream();
+            fwrite($newStream, '{');
+            $this->flen = 1;
+            $this->seek(1);
+            $count = 0;
+            foreach ($this->offsetList as $currentOffset => $info) {
+                if ($currentOffset == $offset) {
+                    $this->seek($info['length'] + 1, SEEK_CUR);
+                    continue;
+                }
+                if ($count++ > 0) {
+                    fwrite($newStream, ',');
+                    $this->seek(1, SEEK_CUR);
+                    ++$this->flen;
+                }
+                stream_copy_to_stream($this->stream, $newStream, $info['length']);
+                $this->flen += $info['length'];
+            }
+            fwrite($newStream, '}');
+            ++$this->flen;
+            unset($this->offsetList[$offset]);
+            fclose($this->stream);
+            $this->stream = $newStream;
+        }
     }
 }

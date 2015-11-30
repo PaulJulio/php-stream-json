@@ -18,6 +18,7 @@ class StreamJSONTest extends PHPUnit_Framework_TestCase {
         $this->assertClassHasAttribute('stream', PaulJulio\StreamJSON\StreamJSON::class);
         $this->assertClassHasAttribute('flen', PaulJulio\StreamJSON\StreamJSON::class);
         $this->assertClassHasAttribute('cursor', PaulJulio\StreamJSON\StreamJSON::class);
+        $this->assertClassHasAttribute('offsetList', PaulJulio\StreamJSON\StreamJSON::class);
     }
 
     public function testEmpty() {
@@ -135,5 +136,47 @@ class StreamJSONTest extends PHPUnit_Framework_TestCase {
         $this->assertEquals(0, $this->sj->tell());
         $this->sj->detach();
         $this->sj->rewind();
+    }
+
+    public function testOffsetExists() {
+        $this->assertFalse($this->sj->offsetExists('test'));
+        $this->sj->offsetSet('test', 'testvalue');
+        $this->assertTrue($this->sj->offsetExists('test'));
+        $this->sj->detach();
+        $this->assertFalse($this->sj->offsetExists('test'));
+    }
+
+    /**
+     * @expectedException \Exception
+     */
+    public function testOffsetSet() {
+        $this->sj->offsetSet('test', 'value1');
+        $this->assertEquals(json_encode(['test'=>'value1']), (string) $this->sj);
+        $this->sj->offsetSet('test', 'value');
+        $this->assertEquals(json_encode(['test'=>'value']), (string) $this->sj);
+        $this->sj->offsetSet('foo', 'bar');
+        $this->assertEquals(json_encode(['test'=>'value','foo'=>'bar']), (string) $this->sj);
+        $this->sj->offsetSet('fizz','buzz');
+        $this->assertEquals(json_encode(['test'=>'value','foo'=>'bar','fizz'=>'buzz']), (string) $this->sj);
+        $this->sj->offsetSet('foo', 'barbaz');
+        $this->assertEquals(json_encode(['test'=>'value','fizz'=>'buzz','foo'=>'barbaz']), (string) $this->sj);
+        $this->assertEquals(strlen($this->sj), $this->sj->getSize());
+        $this->sj->detach();
+        $this->sj->offsetSet('exception', 'exception');
+    }
+
+    /**
+     * @expectedException \Exception
+     */
+    public function testOffsetGet() {
+        $this->sj->offsetSet('test','value');
+        $this->assertEquals('value', $this->sj->offsetGet('test'));
+        $this->sj->offsetSet('test2', ['a'=>1,2]);
+        $this->assertEquals(['a'=>1,2], $this->sj->offsetGet('test2'));
+        $this->sj->offsetSet('test', json_decode(json_encode(['b'=>2,3,1.2])));
+        $this->assertEquals(json_decode(json_encode(['b'=>2,3,1.2])), $this->sj->offsetGet('test'));
+        $this->assertNull($this->sj->offsetGet('null'));
+        $this->sj->detach();
+        $this->assertEquals('test', $this->sj->offsetGet('exception'));
     }
 }
