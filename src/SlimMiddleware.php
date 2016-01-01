@@ -16,8 +16,8 @@ final class SlimMiddleware {
      * @return \Psr\Http\Message\ResponseInterface
      */
     public function __invoke($request, $response, $next) {
-        $response = $response->withBody(new StreamJSON());
         $response = $next($request, $response);
+        $response = $response->withBody(new StreamJSON());
         return $response;
     }
 }
