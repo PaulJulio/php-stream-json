@@ -17,7 +17,7 @@ final class SlimMiddleware {
      */
     public function __invoke($request, $response, $next) {
         $response = $next($request, $response);
-        $response = $response->withBody(new StreamJSON());
+        $response = $response->withBody(new StreamJSON())->withHeader('Content-type', 'application/json');
         return $response;
     }
 }
