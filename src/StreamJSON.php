@@ -355,6 +355,9 @@ final class StreamJSON implements \Psr\Http\Message\StreamInterface, \ArrayAcces
             /* need to get the contents of the current stream after the key and put them after the new key,
                 then adjust the cursor references */
             if (isset($key)) {
+                if (!isset($this->asVariableKey)) {
+                    $key .= '=';
+                }
                 $keyLen = strlen($key);
             } else {
                 $keyLen = 0;

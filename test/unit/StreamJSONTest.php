@@ -181,6 +181,12 @@ class StreamJSONTest extends PHPUnit_Framework_TestCase {
     }
 
     public function testAsVariable() {
+        $this->sj->offsetSet('key', 'label');
+        $this->sj->asVariable('test');
+        $this->assertEquals('test='.json_encode(['key'=>'label']), (string) $this->sj);
+        $this->sj->offsetUnset('key');
+        $this->sj->asVariable(null);
+        $this->assertEquals('{}', (string) $this->sj);
         $this->sj->asVariable('test');
         $this->assertEquals('test={}', (string) $this->sj);
         $this->sj->offsetSet('key', 'label');
