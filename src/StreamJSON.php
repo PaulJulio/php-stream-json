@@ -12,6 +12,8 @@ final class StreamJSON implements \Psr\Http\Message\StreamInterface, \ArrayAcces
     private $cursor = 0;
     /* @var array a dictionary of offsets to their cursor position */
     private $offsetList = [];
+    /* @var string|null the key used for variable assignment, or null if not used */
+    private $asVariableKey = null;
 
     public function __construct() {
         $this->stream = $this->createStream();
@@ -299,7 +301,7 @@ final class StreamJSON implements \Psr\Http\Message\StreamInterface, \ArrayAcces
      * @param mixed $offset
      */
     public function offsetUnset($offset) {
-        if ($this->offsetExists($offset) && count($this->offsetList) === 1) {
+        if ($this->offsetExists($offset) && count($this->offsetList) === 1 && !isset($this->asVariableKey)) {
             // resetting the only set key, just reset the stream
             fclose($this->stream);
             $this->offsetList = [];
@@ -332,5 +334,53 @@ final class StreamJSON implements \Psr\Http\Message\StreamInterface, \ArrayAcces
             fclose($this->stream);
             $this->stream = $newStream;
         }
+    }
+
+    /**
+     * @param $key
+     */
+    public function asVariable($key) {
+        if (count($this->offsetList) === 0) {
+            // empty list, just quickly recreate the stream
+            fclose($this->stream);
+            $this->stream = $this->createStream();
+            if (isset($key)) {
+                fwrite($this->stream, $key . '={}');
+                $this->flen = strlen($key) + 3;
+            } else {
+                fwrite($this->stream, '{}');
+                $this->flen = 2;
+            }
+        } elseif (isset($key) || isset($this->asVariableKey)) {
+            /* need to get the contents of the current stream after the key and put them after the new key,
+                then adjust the cursor references */
+            if (isset($key)) {
+                $keyLen = strlen($key);
+            } else {
+                $keyLen = 0;
+            }
+            if (isset($this->asVariableKey)) {
+                $asVarKeyLen = strlen($this->asVariableKey);
+            } else {
+                $asVarKeyLen = 0;
+            }
+            if (isset($this->asVariableKey) && !isset($key)) {
+                // account for the fact that we are trimming the equals sign
+                $asVarKeyLen++;
+            }
+            $adjust = $keyLen - $asVarKeyLen;
+            $this->seek($asVarKeyLen);
+            $newStream = $this->createStream();
+            fwrite($newStream, $key);
+            stream_copy_to_stream($this->stream, $newStream);
+            if ($asVarKeyLen != $keyLen) {
+                foreach ($this->offsetList as $offset => $info) {
+                    $this->offsetList[$offset]['cursor'] += $adjust;
+                }
+                $this->flen += $adjust;
+            }
+            $this->stream = $newStream;
+        }
+        $this->asVariableKey = $key;
     }
 }

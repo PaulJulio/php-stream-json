@@ -179,4 +179,24 @@ class StreamJSONTest extends PHPUnit_Framework_TestCase {
         $this->sj->detach();
         $this->assertEquals('test', $this->sj->offsetGet('exception'));
     }
+
+    public function testAsVariable() {
+        $this->sj->asVariable('test');
+        $this->assertEquals('test={}', (string) $this->sj);
+        $this->sj->offsetSet('key', 'label');
+        $this->assertEquals('test='.json_encode(['key'=>'label']), (string) $this->sj);
+        $this->assertEquals('label', $this->sj->offsetGet('key'));
+        $this->sj->asVariable('diff');
+        $this->assertEquals('diff='.json_encode(['key'=>'label']), (string) $this->sj);
+        $this->assertEquals('label', $this->sj->offsetGet('key'));
+        $this->sj->asVariable('nowlonger');
+        $this->assertEquals('nowlonger='.json_encode(['key'=>'label']), (string) $this->sj);
+        $this->assertEquals('label', $this->sj->offsetGet('key'));
+        $this->sj->asVariable('shorter');
+        $this->assertEquals('shorter='.json_encode(['key'=>'label']), (string) $this->sj);
+        $this->assertEquals('label', $this->sj->offsetGet('key'));
+        $this->sj->asVariable(null);
+        $this->assertEquals(json_encode(['key'=>'label']), (string) $this->sj);
+        $this->assertEquals('label', $this->sj->offsetGet('key'));
+    }
 }
