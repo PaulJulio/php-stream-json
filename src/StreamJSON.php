@@ -1,7 +1,7 @@
 <?php
 namespace PaulJulio\StreamJSON;
 
-final class StreamJSON implements \Psr\Http\Message\StreamInterface, \ArrayAccess {
+class StreamJSON implements \Psr\Http\Message\StreamInterface, \ArrayAccess {
     /* todo: most likely breaks horribly for multi-byte character sets */
 
     /* @var resource */
